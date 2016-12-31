@@ -31,6 +31,9 @@ class Node(object):
         if a is None or b is None:
             return Node.LINK_NONE
 
+        if a.next == b and b.previous == a:
+            return Node.LINK_OK
+
         if a.next is not None:
             return Node.LINK_SOURCE_HAS_NEXT
 
@@ -49,5 +52,5 @@ def extract_connected(node_list):
         if n in extracted:
             continue
         head = n.find_head()
-        yield head
         extracted.update(head.chain())
+        yield head

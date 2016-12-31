@@ -166,18 +166,18 @@ class Collector(object):
         )
 
         if name_info.value > 0:
-            prev = self._get_neighbor(name_info, 0, -1)
-            self._connect(prev, node)
+            prev_node = self._get_neighbor(name_info, 0, -1)
+            self._connect(prev_node, node)
 
             if check_shorter:
-                prev = self._get_neighbor(name_info, -1, -1)
-                self._connect(prev, node)
+                prev_node = self._get_neighbor(name_info, -1, -1)
+                self._connect(prev_node, node)
 
         if check_longer:
-            next_ = self._get_neighbor(name_info, 1, 1)
+            next_node = self._get_neighbor(name_info, 1, 1)
         else:
-            next_ = self._get_neighbor(name_info, 0, 1)
-        self._connect(node, next_)
+            next_node = self._get_neighbor(name_info, 0, 1)
+        self._connect(node, next_node)
 
     def _get_neighbor(self, name_info, digit_count_delta, value_delta):
         key = lookup_key(name_info, digit_count_delta, value_delta)
