@@ -7,6 +7,7 @@ from gather.transaction import (
     DryRunner, FilesystemTransaction, RollbackError
 )
 import gather.log as log
+import gather.util as util
 
 
 DEFAULT_DIR_TEMPLATE = "{path_prefix}[{first}-{last}]{suffix}"
@@ -134,6 +135,20 @@ def prepare(
     sequences_by_parent = group(collector.sequences(), key=sequence_namer)
     found_shared = False
     for parent, sequences in sequences_by_parent:
+        sequences, rejected = util.filter_partition(
+            lambda s: len(s.paths) >= min_sequence_length,
+            sequences
+        )
+
+        for sequence in rejected:
+            logger.log(
+                log.INFO if len(sequence.paths) > 1 else log.VERBOSE,
+                MSG_SHORT,
+                sequence_name = str(sequence),
+                sequence_length = len(sequence.paths),
+                min_length = min_sequence_length
+            )
+
         if len(sequences) > 1:
             share_log(
                 MSG_SHARED_HEADER_ALLOWED
@@ -154,17 +169,7 @@ def prepare(
                     logger.defer.info(MSG_SHARED_COACH)
                 continue
 
-        for sequence in sequences:
-            if len(sequence.paths) < min_sequence_length:
-                logger.log(
-                    log.INFO if len(sequence.paths) > 1 else log.VERBOSE,
-                    MSG_SHORT,
-                    sequence_name = str(sequence),
-                    sequence_length = len(sequence.paths),
-                    min_length = min_sequence_length
-                )
-            else:
-                plan.append((parent, sequence.paths))
+        plan.extend((parent, sequence.paths) for sequence in sequences)
 
     if len(cancel_reasons) > 0:
         logger.error(
