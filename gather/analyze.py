@@ -1,6 +1,7 @@
+from enum import Enum
+import collections
 import os.path
 import re
-import collections
 
 from gather import graph
 
@@ -104,10 +105,13 @@ def lookup_key(name_info, digit_count_delta=0, value_delta=0):
         name_info.value + value_delta
     )
 
-class Collector(object):
-    AMBIGUITY_PREVIOUS = -1
-    AMBIGUITY_NEXT = 1
 
+class Direction(Enum):
+    previous = -1
+    next = 1
+
+
+class Collector(object):
     def __init__(self):
         self._node_lookup = dict()
         self._all_nodes = [ ]
@@ -186,17 +190,11 @@ class Collector(object):
     def _connect(self, a, b):
         status = graph.Node.link(a, b)
 
-        if status == graph.Node.LINK_SOURCE_HAS_NEXT:
-            self._add_ambiguity(
-                Collector.AMBIGUITY_NEXT,
-                a, (a.next, b)
-            )
+        if status == graph.LinkResult.source_has_next:
+            self._add_ambiguity(Direction.next, a, (a.next, b))
 
-        elif status == graph.Node.LINK_TARGET_HAS_PREVIOUS:
-            self._add_ambiguity(
-                Collector.AMBIGUITY_PREVIOUS,
-                b, (b.previous, a)
-            )
+        elif status == graph.LinkResult.target_has_previous:
+            self._add_ambiguity(Direction.previous, b, (b.previous, a))
 
     def _add_ambiguity(self, direction, node, choices):
         self._ambiguous_nodes.add(node)

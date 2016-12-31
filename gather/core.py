@@ -1,7 +1,8 @@
+from enum import Enum
 import collections
 import os
 
-from gather.analyze import Collector
+from gather.analyze import Collector, Direction
 from gather.transaction import (
     DryRunner, FilesystemTransaction, RollbackError
 )
@@ -10,30 +11,34 @@ import gather.log as log
 
 DEFAULT_DIR_TEMPLATE = "{path_prefix}[{first}-{last}]{suffix}"
 
-IGNORE = 0
-REPORT = 1
-CANCEL = 2
-ALLOW = 3
-SKIP = 4
+class AmbiguityBehavior(Enum):
+    ignore = 0
+    report = 1
+    cancel = 2
 
-AMBIGUITY_CHOICES = (IGNORE, REPORT, CANCEL)
-SHARED_DIRECTORY_CHOICES = (ALLOW, SKIP, CANCEL)
+class SharedDirectoryBehavior(Enum):
+    allow  = 0
+    skip   = 1
+    cancel = 2
 
-CANCEL_REASON_AMBIGUITIES = 1
-CANCEL_REASON_SHARED = 2
+class CancelReason(Enum):
+    ambiguities = 1
+    shared_directories = 2
 
-ROLLBACK_SET = 1
-ROLLBACK_ALL = 2
+class RollbackBehavior(Enum):
+    set = 1
+    all = 2
 
-RESULT_OK = 0
-RESULT_CANCEL = 2
-RESULT_ERROR_FULL_ROLLBACK = 3
-RESULT_ERROR_PARTIAL_ROLLBACK = 4
-RESULT_ERROR_FAILED_ROLLBACK = 5
+class GatherResult(Enum):
+    ok = 0
+    cancel = 2
+    error_full_rollback = 3
+    error_partial_rollback = 4
+    error_failed_rollback = 5
 
 MSG_CANCEL_REASONS = (
-    (CANCEL_REASON_AMBIGUITIES, "ambiguous sequences"),
-    (CANCEL_REASON_SHARED,      "multiple sequences sharing a directory"),
+    (CancelReason.ambiguities,        "ambiguous sequences"),
+    (CancelReason.shared_directories, "multiple sequences sharing a directory"),
 )
 MSG_CANCEL_REASONS_REPORT = "Stopping because {reasons}"
 
@@ -63,9 +68,9 @@ def gather(
     paths,
     dir_template = DEFAULT_DIR_TEMPLATE,
     min_sequence_length = 1,
-    ambiguity_behavior = REPORT,
-    shared_directory_behavior = ALLOW,
-    error_behavior = ROLLBACK_ALL,
+    ambiguity_behavior = AmbiguityBehavior.report,
+    shared_directory_behavior = SharedDirectoryBehavior.allow,
+    rollback_behavior = RollbackBehavior.all,
     dry_run = False,
 ):
     logger = log.Logger()
@@ -87,21 +92,21 @@ def gather(
         transactor = DryRunner()
     else:
         if len(cancel_reasons) > 0:
-            return RESULT_CANCEL
+            return GatherResult.cancel
         transactor = FilesystemTransaction()
 
-    return execute_plan(plan, transactor, logger, error_behavior)
+    return execute_plan(plan, transactor, logger, rollback_behavior)
 
 
 AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL = {
-    IGNORE: log.VERBOSE,
-    REPORT: log.INFO,
-    CANCEL: log.ERROR,
+    AmbiguityBehavior.ignore: log.VERBOSE,
+    AmbiguityBehavior.report: log.INFO,
+    AmbiguityBehavior.cancel: log.ERROR,
 }
 SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL = {
-    ALLOW:  log.VERBOSE,
-    SKIP:   log.WARNING,
-    CANCEL: log.ERROR,
+    SharedDirectoryBehavior.allow:  log.VERBOSE,
+    SharedDirectoryBehavior.skip:   log.WARNING,
+    SharedDirectoryBehavior.cancel: log.ERROR,
 }
 def prepare(
     collector,
@@ -118,8 +123,8 @@ def prepare(
     share_log = logger.level_func(SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL[shared_directory_behavior])
 
     if collector.has_ambiguities():
-        if ambiguity_behavior == CANCEL:
-            cancel_reasons.add(CANCEL_REASON_AMBIGUITIES)
+        if ambiguity_behavior == AmbiguityBehavior.cancel:
+            cancel_reasons.add(CancelReason.ambiguities)
 
         amb_log(MSG_AMBIGUOUS_HEADER)
         for amb in collector.ambiguities():
@@ -132,7 +137,7 @@ def prepare(
         if len(sequences) > 1:
             share_log(
                 MSG_SHARED_HEADER_ALLOWED
-                if shared_directory_behavior == ALLOW
+                if shared_directory_behavior == SharedDirectoryBehavior.allow
                 else MSG_SHARED_HEADER_DISALLOWED
             )
 
@@ -141,11 +146,11 @@ def prepare(
                 share_log("    %s" % sequence)
             share_log("")
 
-            if shared_directory_behavior != ALLOW:
+            if shared_directory_behavior != SharedDirectoryBehavior.allow:
                 if not found_shared:
                     found_shared = True
-                    if shared_directory_behavior == CANCEL:
-                        cancel_reasons.add(CANCEL_REASON_SHARED)
+                    if shared_directory_behavior == SharedDirectoryBehavior.cancel:
+                        cancel_reasons.add(CancelReason.shared_directories)
                     logger.defer.info(MSG_SHARED_COACH)
                 continue
 
@@ -184,7 +189,7 @@ def execute_plan(plan, transactor, logger, error_behavior):
                 logger.info("  %s" % path)
                 new_path = os.path.join(parent, os.path.basename(path))
                 transactor.move(path, new_path)
-            if error_behavior == ROLLBACK_SET:
+            if error_behavior == RollbackBehavior.set:
                 transactor.commit()
             logger.info("")
 
@@ -193,8 +198,8 @@ def execute_plan(plan, transactor, logger, error_behavior):
                 logger.error(MSG_ERROR, error=ose)
                 transactor.rollback()
                 logger.info(MSG_ROLLBACK_OK)
-                if error_behavior == ROLLBACK_ALL:
-                    return RESULT_ERROR_FULL_ROLLBACK
+                if error_behavior == RollbackBehavior.all:
+                    return GatherResult.error_full_rollback
                 else:
                     rollbacks += 1
 
@@ -208,9 +213,9 @@ def execute_plan(plan, transactor, logger, error_behavior):
     if rollbacks != 0:
         logger.warning(MSG_ROLLBACK_COUNT, count=rollbacks, total=len(plan))
         if rollbacks == len(plan):
-            return RESULT_ERROR_FULL_ROLLBACK
-        return RESULT_ERROR_PARTIAL_ROLLBACK
-    return RESULT_OK
+            return GatherResult.error_full_rollback
+        return GatherResult.error_partial_rollback
+    return GatherResult.ok
 
 
 def sequence_name_generator(template):
@@ -229,7 +234,7 @@ def sequence_name_generator(template):
 def format_ambiguity(amb):
     template = (
         MSG_AMBIGUOUS_PREVIOUS
-        if amb.direction == Collector.AMBIGUITY_PREVIOUS
+        if amb.direction == Direction.previous
         else MSG_AMBIGUOUS_NEXT
     )
     return template.format(**amb._as_dict())

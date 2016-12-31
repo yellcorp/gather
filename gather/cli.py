@@ -9,24 +9,6 @@ from gather import (
 
 
 DEFAULT_EPILOG = "The default is %(default)s."
-
-AMB_ENUM = dict(
-    ignore = core.IGNORE,
-    report = core.REPORT,
-    cancel = core.CANCEL,
-)
-
-SHARE_ENUM = dict(
-    allow  = core.ALLOW,
-    skip   = core.SKIP,
-    cancel = core.CANCEL,
-)
-
-ROLLBACK_ENUM = dict(
-    set = core.ROLLBACK_SET,
-    all = core.ROLLBACK_ALL,
-)
-
 def get_arg_parser():
     p = ArgumentParser(
         description = """Detect sets of files named with incrementing numbers,
@@ -83,8 +65,8 @@ def get_arg_parser():
 
     p.add_argument(
         "-a", "--ambiguities",
-        choices = frozenset(AMB_ENUM.keys()),
-        default = "report",
+        choices = enum_name_set(core.AmbiguityBehavior),
+        default = core.AmbiguityBehavior.report.name,
         metavar = "ACTION",
         help = """Specify handling of ambiguities. Ambiguities can occur if
         there are multiple files that could precede or follow a given file. In
@@ -96,8 +78,8 @@ def get_arg_parser():
 
     p.add_argument(
         "-s", "--shared",
-        choices = frozenset(SHARE_ENUM.keys()),
-        default = "allow",
+        choices = enum_name_set(core.SharedDirectoryBehavior),
+        default = core.SharedDirectoryBehavior.allow.name,
         metavar = "ACTION",
         help = """Specify handling of shared directories. It is possible to
         specify a template for the --dir option that causes more than one
@@ -111,8 +93,8 @@ def get_arg_parser():
 
     p.add_argument(
         "--rollback",
-        choices = frozenset(ROLLBACK_ENUM.keys()),
-        default = "all",
+        choices = enum_name_set(core.RollbackBehavior),
+        default = core.RollbackBehavior.all.name,
         metavar = "ACTION",
         help = """Specify handling of errors. `all` will roll back every change
         made and exit. `set` will roll back only the changes to the set in
@@ -136,6 +118,10 @@ def get_arg_parser():
     return p
 
 
+def enum_name_set(enum_class):
+    return frozenset(e.name for e in enum_class)
+
+
 def main():
     sys.exit(run(sys.argv[1:]))
 
@@ -149,12 +135,14 @@ def run(argv1=None):
         else args.paths
     )
 
-    core.gather(
+    result = core.gather(
         paths = paths,
         dir_template = args.dir,
         min_sequence_length = args.min,
-        ambiguity_behavior = AMB_ENUM[args.ambiguities],
-        shared_directory_behavior = SHARE_ENUM[args.shared],
-        error_behavior = ROLLBACK_ENUM[args.rollback],
+        ambiguity_behavior = core.AmbiguityBehavior[args.ambiguities],
+        shared_directory_behavior = core.SharedDirectoryBehavior[args.shared],
+        rollback_behavior = core.RollbackBehavior[args.rollback],
         dry_run = args.dry_run,
     )
+
+    return result.value

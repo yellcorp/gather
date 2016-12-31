@@ -1,3 +1,14 @@
+from enum import Enum
+
+
+class LinkResult(Enum):
+    none = 0
+    ok = 1
+    unchanged = 2
+    source_has_next = 3
+    target_has_previous = 4
+
+
 class Node(object):
     def __init__(self, element=None):
         self.element = element
@@ -22,27 +33,23 @@ class Node(object):
             yield n
             n = n.next
 
-    LINK_NONE = 0
-    LINK_SOURCE_HAS_NEXT = -1
-    LINK_TARGET_HAS_PREVIOUS = -2
-    LINK_OK = 1
     @staticmethod
     def link(a, b):
         if a is None or b is None:
-            return Node.LINK_NONE
+            return LinkResult.none
 
         if a.next == b and b.previous == a:
-            return Node.LINK_OK
+            return LinkResult.unchanged
 
         if a.next is not None:
-            return Node.LINK_SOURCE_HAS_NEXT
+            return LinkResult.source_has_next
 
         if b.previous is not None:
-            return Node.LINK_TARGET_HAS_PREVIOUS
+            return LinkResult.target_has_previous
 
         a.next = b
         b.previous = a
-        return Node.LINK_OK
+        return LinkResult.ok
 
 
 def extract_connected(node_list):
