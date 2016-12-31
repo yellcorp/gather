@@ -8,16 +8,6 @@ from gather.transaction import (
 import gather.log as log
 
 
-def recurse_file_iterator(roots):
-    for path in roots:
-        if os.path.isfile(path):
-            yield path
-        elif os.path.isdir(path):
-            for container, _dirnames, filenames in os.walk(path):
-                for filename in filenames:
-                    yield os.path.join(container, filename)
-
-
 DEFAULT_DIR_TEMPLATE = "{path_prefix}[{first}-{last}]{suffix}"
 
 IGNORE = 0
@@ -71,7 +61,6 @@ MSG_ROLLBACK_COUNT = "{count} of {total} sequences failed and were rolled back."
 
 def gather(
     paths,
-    recurse = False,
     dir_template = DEFAULT_DIR_TEMPLATE,
     min_sequence_length = 1,
     ambiguity_behavior = REPORT,
@@ -82,8 +71,7 @@ def gather(
     logger = log.Logger()
     collector = Collector()
 
-    path_iter = recurse_file_iterator(paths) if recurse else paths
-    collector.collect_all(path_iter)
+    collector.collect_all(paths)
 
     plan, cancel_reasons = prepare(
         collector,

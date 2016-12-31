@@ -1,8 +1,11 @@
 from argparse import ArgumentParser
 import sys
 
-from gather import __version__
-import gather.core as core
+from gather import (
+    __version__,
+    core,
+    util,
+)
 
 
 DEFAULT_EPILOG = "The default is %(default)s."
@@ -139,9 +142,15 @@ def main():
 
 def run(argv1=None):
     args = get_arg_parser().parse_args(argv1)
+
+    paths = (
+        util.recurse_file_iterator(args.paths)
+        if args.recurse
+        else args.paths
+    )
+
     core.gather(
-        paths = args.paths,
-        recurse = args.recurse,
+        paths = paths,
         dir_template = args.dir,
         min_sequence_length = args.min,
         ambiguity_behavior = AMB_ENUM[args.ambiguities],
