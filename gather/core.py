@@ -243,10 +243,6 @@ def format_ambiguity(amb):
     return template.format(**amb._as_dict())
 
 
-def set_only_contains(query_set, element):
-    return len(query_set) == 1 and element in query_set
-
-
 def group(iterable, key=None):
     if key is None:
         key = lambda m: m
