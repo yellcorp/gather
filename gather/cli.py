@@ -144,8 +144,8 @@ def run(argv1=None):
         recurse = args.recurse,
         dir_template = args.dir,
         min_sequence_length = args.min,
-        ambiguities = AMB_ENUM[args.ambiguities],
-        shared_directories = SHARE_ENUM[args.shared],
-        rollback = ROLLBACK_ENUM[args.rollback],
+        ambiguity_behavior = AMB_ENUM[args.ambiguities],
+        shared_directory_behavior = SHARE_ENUM[args.shared],
+        error_behavior = ROLLBACK_ENUM[args.rollback],
         dry_run = args.dry_run,
     )

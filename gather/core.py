@@ -74,9 +74,9 @@ def gather(
     recurse = False,
     dir_template = DEFAULT_DIR_TEMPLATE,
     min_sequence_length = 1,
-    ambiguities = REPORT,
-    shared_directories = ALLOW,
-    rollback = ROLLBACK_ALL,
+    ambiguity_behavior = REPORT,
+    shared_directory_behavior = ALLOW,
+    error_behavior = ROLLBACK_ALL,
     dry_run = False,
 ):
     logger = log.Logger()
@@ -90,27 +90,27 @@ def gather(
         sequence_name_generator(dir_template),
         logger,
         min_sequence_length,
-        ambiguities,
-        shared_directories,
+        ambiguity_behavior,
+        shared_directory_behavior,
     )
 
     if dry_run:
         logger.info(MSG_DRY_RUN)
-        fst = DryRunner()
+        transactor = DryRunner()
     else:
         if len(cancel_reasons) > 0:
             return RESULT_CANCEL
-        fst = FilesystemTransaction()
+        transactor = FilesystemTransaction()
 
-    return execute_plan(plan, fst, logger, rollback)
+    return execute_plan(plan, transactor, logger, error_behavior)
 
 
-AMB_TO_LOG_LEVEL = {
+AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL = {
     IGNORE: log.VERBOSE,
     REPORT: log.INFO,
     CANCEL: log.ERROR,
 }
-SHARE_TO_LOG_LEVEL = {
+SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL = {
     ALLOW:  log.VERBOSE,
     SKIP:   log.WARNING,
     CANCEL: log.ERROR,
@@ -120,17 +120,17 @@ def prepare(
     sequence_namer,
     logger,
     min_sequence_length,
-    ambiguities,
-    shared_directories,
+    ambiguity_behavior,
+    shared_directory_behavior,
 ):
     plan = [ ]
     cancel_reasons = set()
 
-    amb_log = logger.level_func(AMB_TO_LOG_LEVEL[ambiguities])
-    share_log = logger.level_func(SHARE_TO_LOG_LEVEL[shared_directories])
+    amb_log = logger.level_func(AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL[ambiguity_behavior])
+    share_log = logger.level_func(SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL[shared_directory_behavior])
 
     if collector.has_ambiguities():
-        if ambiguities == CANCEL:
+        if ambiguity_behavior == CANCEL:
             cancel_reasons.add(CANCEL_REASON_AMBIGUITIES)
 
         amb_log(MSG_AMBIGUOUS_HEADER)
@@ -144,7 +144,7 @@ def prepare(
         if len(sequences) > 1:
             share_log(
                 MSG_SHARED_HEADER_ALLOWED
-                if shared_directories == ALLOW
+                if shared_directory_behavior == ALLOW
                 else MSG_SHARED_HEADER_DISALLOWED
             )
 
@@ -153,10 +153,10 @@ def prepare(
                 share_log("    %s" % sequence)
             share_log("")
 
-            if shared_directories != ALLOW:
+            if shared_directory_behavior != ALLOW:
                 if not found_shared:
                     found_shared = True
-                    if shared_directories == CANCEL:
+                    if shared_directory_behavior == CANCEL:
                         cancel_reasons.add(CANCEL_REASON_SHARED)
                     logger.defer.info(MSG_SHARED_COACH)
                 continue
@@ -186,7 +186,7 @@ def prepare(
     return plan, cancel_reasons
 
 
-def execute_plan(plan, transactor, logger, rollback):
+def execute_plan(plan, transactor, logger, error_behavior):
     rollbacks = 0
     for parent, paths in plan:
         logger.info(parent)
@@ -196,7 +196,7 @@ def execute_plan(plan, transactor, logger, rollback):
                 logger.info("  %s" % path)
                 new_path = os.path.join(parent, os.path.basename(path))
                 transactor.move(path, new_path)
-            if rollback == ROLLBACK_SET:
+            if error_behavior == ROLLBACK_SET:
                 transactor.commit()
             logger.info("")
 
@@ -205,7 +205,7 @@ def execute_plan(plan, transactor, logger, rollback):
                 logger.error(MSG_ERROR, error=ose)
                 transactor.rollback()
                 logger.info(MSG_ROLLBACK_OK)
-                if rollback == ROLLBACK_ALL:
+                if error_behavior == ROLLBACK_ALL:
                     return RESULT_ERROR_FULL_ROLLBACK
                 else:
                     rollbacks += 1
