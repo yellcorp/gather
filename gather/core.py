@@ -102,42 +102,7 @@ def gather(
             return RESULT_CANCEL
         fst = FilesystemTransaction()
 
-    rollbacks = 0
-    for parent, paths in plan:
-        logger.info(parent)
-        try:
-            fst.mkdirp(parent)
-            for path in paths:
-                logger.info("  %s" % path)
-                new_path = os.path.join(parent, os.path.basename(path))
-                fst.move(path, new_path)
-            if rollback == ROLLBACK_SET:
-                fst.commit()
-            logger.info("")
-
-        except OSError as ose:
-            try:
-                logger.error(MSG_ERROR, error=ose)
-                fst.rollback()
-                logger.info(MSG_ROLLBACK_OK)
-                if rollback == ROLLBACK_ALL:
-                    return RESULT_ERROR_FULL_ROLLBACK
-                else:
-                    rollbacks += 1
-
-            except RollbackError as re:
-                logger.critical(MSG_ROLLBACK_FAIL, error=re)
-                for action in re.actions:
-                    logger.critical("  %s" % action)
-                logger.critical(MSG_ROLLBACK_FAIL_EPILOG)
-                raise re
-
-    if rollbacks != 0:
-        logger.warning(MSG_ROLLBACK_COUNT, count=rollbacks, total=len(plan))
-        if rollbacks == len(plan):
-            return RESULT_ERROR_FULL_ROLLBACK
-        return RESULT_ERROR_PARTIAL_ROLLBACK
-    return RESULT_OK
+    return execute_plan(plan, fst, logger, rollback)
 
 
 AMB_TO_LOG_LEVEL = {
@@ -219,6 +184,45 @@ def prepare(
     logger.defer.flush()
 
     return plan, cancel_reasons
+
+
+def execute_plan(plan, transactor, logger, rollback):
+    rollbacks = 0
+    for parent, paths in plan:
+        logger.info(parent)
+        try:
+            transactor.mkdirp(parent)
+            for path in paths:
+                logger.info("  %s" % path)
+                new_path = os.path.join(parent, os.path.basename(path))
+                transactor.move(path, new_path)
+            if rollback == ROLLBACK_SET:
+                transactor.commit()
+            logger.info("")
+
+        except OSError as ose:
+            try:
+                logger.error(MSG_ERROR, error=ose)
+                transactor.rollback()
+                logger.info(MSG_ROLLBACK_OK)
+                if rollback == ROLLBACK_ALL:
+                    return RESULT_ERROR_FULL_ROLLBACK
+                else:
+                    rollbacks += 1
+
+            except RollbackError as re:
+                logger.critical(MSG_ROLLBACK_FAIL, error=re)
+                for action in re.actions:
+                    logger.critical("  %s" % action)
+                logger.critical(MSG_ROLLBACK_FAIL_EPILOG)
+                raise re
+
+    if rollbacks != 0:
+        logger.warning(MSG_ROLLBACK_COUNT, count=rollbacks, total=len(plan))
+        if rollbacks == len(plan):
+            return RESULT_ERROR_FULL_ROLLBACK
+        return RESULT_ERROR_PARTIAL_ROLLBACK
+    return RESULT_OK
 
 
 def sequence_name_generator(template):
