@@ -21,7 +21,7 @@ class Action(object):
             type(self).__name__,
             ", ".join(repr(a) for a in self._args)
         )
-    
+
     __str__ = __repr__
 
     def execute(self):
@@ -63,7 +63,7 @@ class Mkdir(Action):
 
     def undo_action(self):
         return Rmdir(self._path)
-    
+
 
 class Rmdir(Action):
     def __init__(self, path):

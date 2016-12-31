@@ -47,8 +47,7 @@ def extract_connected(node_list):
 
     for n in node_list:
         if n in extracted:
-            continue        
+            continue
         head = n.find_head()
         yield head
         extracted.update(head.chain())
-            

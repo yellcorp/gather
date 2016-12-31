@@ -95,7 +95,7 @@ class SequenceInfo(object):
 
     @property
     def suffix(self):
-        return self.first.suffix        
+        return self.first.suffix
 
 
 def lookup_key(name_info, digit_count_delta=0, value_delta=0):

@@ -45,7 +45,7 @@ MSG_CANCEL_REASONS = (
     (CANCEL_REASON_AMBIGUITIES, "ambiguous sequences"),
     (CANCEL_REASON_SHARED,      "multiple sequences sharing a directory"),
 )
-MSG_CANCEL_REASONS_REPORT = "Stopping because {reasons}" 
+MSG_CANCEL_REASONS_REPORT = "Stopping because {reasons}"
 
 MSG_AMBIGUOUS_HEADER = "The following files are ambiguous sequence members:"
 MSG_AMBIGUOUS_NEXT = "  {file} could be followed by {choices[0]} or {choices[1]}"
@@ -162,12 +162,12 @@ def prepare(
     cancel_reasons = set()
 
     amb_log = logger.level_func(AMB_TO_LOG_LEVEL[ambiguities])
-    share_log = logger.level_func(SHARE_TO_LOG_LEVEL[shared_directories]) 
+    share_log = logger.level_func(SHARE_TO_LOG_LEVEL[shared_directories])
 
     if collector.has_ambiguities():
         if ambiguities == CANCEL:
             cancel_reasons.add(CANCEL_REASON_AMBIGUITIES)
-            
+
         amb_log(MSG_AMBIGUOUS_HEADER)
         for amb in collector.ambiguities():
             amb_log(format_ambiguity(amb))
