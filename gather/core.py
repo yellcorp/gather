@@ -156,7 +156,8 @@ def prepare(
 
         for sequence in sequences:
             if len(sequence.paths) < min_sequence_length:
-                logger.info(
+                logger.log(
+                    log.INFO if len(sequence.paths) > 1 else log.VERBOSE,
                     MSG_SHORT,
                     sequence_name = str(sequence),
                     sequence_length = len(sequence.paths),
