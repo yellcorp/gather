@@ -134,7 +134,7 @@ def get_arg_parser():
 
 
 def main():
-    return run(sys.argv[1:])
+    sys.exit(run(sys.argv[1:]))
 
 
 def run(argv1=None):
