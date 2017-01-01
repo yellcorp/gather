@@ -68,7 +68,7 @@ def get_arg_parser():
 
     p.add_argument(
         "-a", "--ambiguities",
-        choices = enum_name_set(params.AmbiguityBehavior),
+        choices = util.enum_name_set(params.AmbiguityBehavior),
         default = params.AmbiguityBehavior.report.name,
         metavar = "ACTION",
         help = """Specify handling of ambiguities. Ambiguities can occur if
@@ -81,7 +81,7 @@ def get_arg_parser():
 
     p.add_argument(
         "-s", "--shared",
-        choices = enum_name_set(params.SharedDirectoryBehavior),
+        choices = util.enum_name_set(params.SharedDirectoryBehavior),
         default = params.SharedDirectoryBehavior.allow.name,
         metavar = "ACTION",
         help = """Specify handling of shared directories. It is possible to
@@ -96,7 +96,7 @@ def get_arg_parser():
 
     p.add_argument(
         "--rollback",
-        choices = enum_name_set(params.RollbackBehavior),
+        choices = util.enum_name_set(params.RollbackBehavior),
         default = params.RollbackBehavior.all.name,
         metavar = "ACTION",
         help = """Specify handling of errors. `all` will roll back every change
@@ -188,7 +188,3 @@ def decide_log_level(selectable_levels, default_level, verbose, quiet):
     )
 
     return selectable_levels[index]
-
-
-def enum_name_set(enum_class):
-    return frozenset(e.name for e in enum_class)

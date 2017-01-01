@@ -1,4 +1,3 @@
-import collections
 import os
 
 from gather.analyze import Collector
@@ -81,7 +80,7 @@ def prepare(
     if len(rejected) > 0:
         handler.handle_rejected_sequences(rejected)
 
-    for parent, dir_sequences in group(qualifying, key=sequence_namer):
+    for parent, dir_sequences in util.group(qualifying, key=sequence_namer):
         if len(dir_sequences) > 1:
             handler.handle_shared_sequences(parent, dir_sequences)
 
@@ -147,20 +146,3 @@ def sequence_name_generator(template):
             field = "#" * sequence.first.digit_count,
         )
     return generate
-
-
-def group(iterable, key=None):
-    if key is None:
-        key = lambda m: m
-
-    result = collections.OrderedDict()
-
-    for m in iterable:
-        k = key(m)
-        if k not in result:
-            result[k] = [ m ]
-        else:
-            result[k].append(m)
-
-    for k, ms in result.items():
-        yield k, ms
