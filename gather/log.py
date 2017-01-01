@@ -41,6 +41,15 @@ class LogMethodsMixin(object):
     debug = log_method(DEBUG)
 
 
+class NoOpLogger(LogMethodsMixin):
+    def log(self, level, template, *targs, **tkwargs):
+        # override it here too so we don't spend time formatting
+        pass
+
+    def _log(self, level, message):
+        pass
+
+
 class Logger(LogMethodsMixin):
     def __init__(self, stream=None, min_level=DEBUG):
         self._stream = stream or sys.stdout

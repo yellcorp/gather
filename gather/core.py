@@ -74,8 +74,11 @@ def gather(
     shared_directory_behavior = SharedDirectoryBehavior.allow,
     rollback_behavior = RollbackBehavior.all,
     dry_run = False,
+    logger = None,
 ):
-    logger = log.Logger()
+    if logger is None:
+        logger = log.NoOpLogger()
+
     collector = Collector()
 
     collector.collect_all(paths)

@@ -4,6 +4,7 @@ import sys
 from gather import (
     __version__,
     core,
+    log,
     util,
 )
 
@@ -110,6 +111,20 @@ def get_arg_parser():
     )
 
     p.add_argument(
+        "-v", "--verbose",
+        action = "count",
+        default = 0,
+        help = """Increase logging level."""
+    )
+
+    p.add_argument(
+        "-q", "--quiet",
+        action = "count",
+        default = 0,
+        help = """Decrease logging level."""
+    )
+
+    p.add_argument(
         "--version",
         action="version",
         version="%(prog)s " + __version__
@@ -118,14 +133,17 @@ def get_arg_parser():
     return p
 
 
-def enum_name_set(enum_class):
-    return frozenset(e.name for e in enum_class)
-
-
 def main():
     sys.exit(run(sys.argv[1:]))
 
 
+LOG_LEVELS = (
+    log.ERROR,
+    log.WARNING,
+    log.INFO,
+    log.VERBOSE,
+    log.DEBUG,
+)
 def run(argv1=None):
     args = get_arg_parser().parse_args(argv1)
 
@@ -135,6 +153,10 @@ def run(argv1=None):
         else args.paths
     )
 
+    log_level = decide_log_level(LOG_LEVELS, log.INFO, args.verbose, args.quiet)
+
+    logger = log.Logger(min_level=log_level)
+
     result = core.gather(
         paths = paths,
         dir_template = args.dir,
@@ -143,6 +165,23 @@ def run(argv1=None):
         shared_directory_behavior = core.SharedDirectoryBehavior[args.shared],
         rollback_behavior = core.RollbackBehavior[args.rollback],
         dry_run = args.dry_run,
+        logger = logger,
     )
 
     return result.value
+
+
+def decide_log_level(selectable_levels, default_level, verbose, quiet):
+    index = max(
+        0,
+        min(
+            len(selectable_levels) - 1,
+            selectable_levels.index(default_level) + verbose - quiet
+        )
+    )
+
+    return selectable_levels[index]
+
+
+def enum_name_set(enum_class):
+    return frozenset(e.name for e in enum_class)
