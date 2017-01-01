@@ -37,6 +37,7 @@ class GatherResult(Enum):
     error_partial_rollback = 4
     error_failed_rollback = 5
 
+
 MSG_CANCEL_REASONS = (
     (CancelReason.ambiguities,        "ambiguous sequences"),
     (CancelReason.shared_directories, "multiple sequences sharing a directory"),
@@ -51,9 +52,9 @@ MSG_SHARED_HEADER_ALLOWED = "Directory will contain multiple sequences:"
 MSG_SHARED_HEADER_DISALLOWED = "Directory would contain multiple sequences:"
 MSG_SHARED_COACH = "Use the --template option to create distinct directory names, or allow directories to contain multiple sequences with --share allow"
 
-MSG_SHORT = "Skipping sequence {sequence_name} because its length ({sequence_length}) is below the minimum {min_length}"
+MSG_SHORT_HEADER = "The following sequences will be skipped because they are shorter than the minimum length {min_sequence_length}"
 
-MSG_DRY_RUN = "--dry-run specified. No changes will be made."
+MSG_DRY_RUN = "--dry-run specified. No changes were made."
 
 MSG_ERROR = "Error: {error!s}. Rolling back..."
 MSG_ROLLBACK_OK = "Rollback complete"
@@ -89,14 +90,18 @@ def gather(
     )
 
     if dry_run:
-        logger.info(MSG_DRY_RUN)
         transactor = DryRunner()
     else:
         if len(cancel_reasons) > 0:
             return GatherResult.cancel
         transactor = FilesystemTransaction()
 
-    return execute_plan(plan, transactor, logger, rollback_behavior)
+    result = execute_plan(plan, transactor, logger, rollback_behavior)
+
+    if dry_run:
+        logger.info(MSG_DRY_RUN)
+
+    return result
 
 
 AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL = {
@@ -120,69 +125,104 @@ def prepare(
     plan = [ ]
     cancel_reasons = set()
 
-    amb_log = logger.level_func(AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL[ambiguity_behavior])
-    share_log = logger.level_func(SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL[shared_directory_behavior])
-
     if collector.has_ambiguities():
         if ambiguity_behavior == AmbiguityBehavior.cancel:
             cancel_reasons.add(CancelReason.ambiguities)
 
-        amb_log(MSG_AMBIGUOUS_HEADER)
-        for amb in collector.ambiguities():
-            amb_log(format_ambiguity(amb))
-        amb_log("")
+        log_ambiguities(
+            logger.level_func(AMBIGUITY_BEHAVIOR_TO_LOG_LEVEL[ambiguity_behavior]),
+            collector.ambiguities(),
+        )
 
     sequences_by_parent = group(collector.sequences(), key=sequence_namer)
-    found_shared = False
+
+    show_share_coach = False
     for parent, sequences in sequences_by_parent:
         sequences, rejected = util.filter_partition(
             lambda s: len(s.paths) >= min_sequence_length,
             sequences
         )
 
-        for sequence in rejected:
-            logger.log(
-                log.INFO if len(sequence.paths) > 1 else log.VERBOSE,
-                MSG_SHORT,
-                sequence_name = str(sequence),
-                sequence_length = len(sequence.paths),
-                min_length = min_sequence_length
-            )
+        if len(rejected) > 0:
+            log_short_sequences(logger, rejected, min_sequence_length)
 
         if len(sequences) > 1:
-            share_log(
-                MSG_SHARED_HEADER_ALLOWED
-                if shared_directory_behavior == SharedDirectoryBehavior.allow
-                else MSG_SHARED_HEADER_DISALLOWED
+            log_shared_sequences(
+                logger.level_func(SHARED_DIRECTORY_BEHAVIOR_TO_LOG_LEVEL[shared_directory_behavior]),
+                sequences,
+                parent,
+                shared_directory_behavior == SharedDirectoryBehavior.allow,
             )
 
-            share_log("  %s" % parent)
-            for sequence in sequences:
-                share_log("    %s" % sequence)
-            share_log("")
-
             if shared_directory_behavior != SharedDirectoryBehavior.allow:
-                if not found_shared:
-                    found_shared = True
-                    if shared_directory_behavior == SharedDirectoryBehavior.cancel:
-                        cancel_reasons.add(CancelReason.shared_directories)
-                    logger.defer.info(MSG_SHARED_COACH)
+                show_share_coach = True
+                if shared_directory_behavior == SharedDirectoryBehavior.cancel:
+                    cancel_reasons.add(CancelReason.shared_directories)
                 continue
 
         plan.extend((parent, sequence.paths) for sequence in sequences)
 
     if len(cancel_reasons) > 0:
-        logger.error(
-            MSG_CANCEL_REASONS_REPORT,
-            reasons = ", ".join(
-                message for reason, message in MSG_CANCEL_REASONS
-                if reason in cancel_reasons
-            )
-        )
+        log_cancel_reasons(logger.error, cancel_reasons)
 
-    logger.defer.flush()
+    if show_share_coach:
+        logger.defer.info(MSG_SHARED_COACH)
 
     return plan, cancel_reasons
+
+
+def log_ambiguities(log_func, ambiguities):
+    log_func(MSG_AMBIGUOUS_HEADER)
+    for amb in ambiguities:
+        template = (
+            MSG_AMBIGUOUS_PREVIOUS
+            if amb.direction == Direction.previous
+            else MSG_AMBIGUOUS_NEXT
+        )
+        log_func(template, **amb._as_dict())
+
+
+def log_short_sequences(logger, sequences, min_sequence_length):
+    header_level = (
+        log.INFO if any(len(s.paths) > 1 for s in sequences)
+        else log.VERBOSE
+    )
+
+    logger.log(
+        header_level,
+        MSG_SHORT_HEADER,
+        min_sequence_length = min_sequence_length
+    )
+
+    for sequence in sequences:
+        logger.log(
+            log.INFO if len(sequence.paths) > 1 else log.VERBOSE,
+            "  (%d) %s" % (len(sequence.paths), sequence)
+        )
+
+    logger.log(header_level, "")
+
+
+def log_shared_sequences(log_func, sequences, parent, allowed):
+    log_func(
+        MSG_SHARED_HEADER_ALLOWED
+        if allowed
+        else MSG_SHARED_HEADER_DISALLOWED
+    )
+
+    log_func("  %s" % parent)
+    for sequence in sequences:
+        log_func("    %s" % sequence)
+    log_func("")
+
+
+def log_cancel_reasons(log_func, cancel_reasons):
+    reasons_text = ", ".join(
+        message for reason, message in MSG_CANCEL_REASONS
+        if reason in cancel_reasons
+    )
+
+    log_func(MSG_CANCEL_REASONS_REPORT, reasons=reasons_text)
 
 
 def execute_plan(plan, transactor, logger, error_behavior):
@@ -235,15 +275,6 @@ def sequence_name_generator(template):
             field = "#" * sequence.first.digit_count,
         )
     return generate
-
-
-def format_ambiguity(amb):
-    template = (
-        MSG_AMBIGUOUS_PREVIOUS
-        if amb.direction == Direction.previous
-        else MSG_AMBIGUOUS_NEXT
-    )
-    return template.format(**amb._as_dict())
 
 
 def group(iterable, key=None):
