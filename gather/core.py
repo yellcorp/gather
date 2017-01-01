@@ -169,7 +169,7 @@ def prepare(
         log_cancel_reasons(logger.error, cancel_reasons)
 
     if show_share_coach:
-        logger.defer.info(MSG_SHARED_COACH)
+        logger.info(MSG_SHARED_COACH)
 
     return plan, cancel_reasons
 
