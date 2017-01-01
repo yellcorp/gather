@@ -35,7 +35,7 @@ def get_arg_parser():
 
     p.add_argument(
         "-d", "--dir",
-        default = core.DEFAULT_DIR_TEMPLATE,
+        default = params.DEFAULT_DIR_TEMPLATE,
         metavar = "TEMPLATE",
         help = """Specify a template for naming new directories.  The template
         can contain literal text as well as the following tokens, which are

@@ -17,22 +17,14 @@ from gather.transaction import (
 import gather.util as util
 
 
-DEFAULT_DIR_TEMPLATE = "{path_prefix}[{first}-{last}]{suffix}"
-
-
-def gather(
-    paths,
-    config,
-    handler = None,
-):
+def gather(paths, config, handler=None):
     if handler is None:
         handler = NoOpHandler()
 
     collector = Collector()
-
     collector.collect_all(paths)
 
-    plan, cancel_reasons = prepare(
+    plan, cancel_reasons = generate_plan(
         collector,
         sequence_name_generator(config.dir_template),
         config.min_sequence_length,
@@ -56,7 +48,7 @@ def gather(
     )
 
 
-def prepare(
+def generate_plan(
     collector,
     sequence_namer,
     min_sequence_length,

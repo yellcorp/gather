@@ -2,18 +2,6 @@ from enum import Enum
 import collections
 
 
-Config = collections.namedtuple(
-    "Config", (
-        "dir_template",
-        "min_sequence_length",
-        "ambiguity_behavior",
-        "shared_directory_behavior",
-        "rollback_behavior",
-        "dry_run",
-    )
-)
-
-
 class AmbiguityBehavior(Enum):
     ignore = 0
     report = 1
@@ -38,3 +26,18 @@ class GatherResult(Enum):
     error_full_rollback = 3
     error_partial_rollback = 4
     error_failed_rollback = 5
+
+
+DEFAULT_DIR_TEMPLATE = "{path_prefix}[{first}-{last}]{suffix}"
+
+
+Config = collections.namedtuple(
+    "Config", (
+        "dir_template",
+        "min_sequence_length",
+        "ambiguity_behavior",
+        "shared_directory_behavior",
+        "rollback_behavior",
+        "dry_run",
+    )
+)
