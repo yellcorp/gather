@@ -6,21 +6,29 @@ def enum_name_set(enum_class):
     return frozenset(e.name for e in enum_class)
 
 
-def group(iterable, key=None):
-    if key is None:
-        key = lambda m: m
+def group(iterable, key_function):
+    '''
+    Groups values using a key function.
 
-    result = collections.OrderedDict()
+    Each item in iterable is passed as a single argument to `key`, and then
+    added to a list associated with the return value. The groups is an
+    iterator of (key_result, [ item, ... ]) tuples.
 
-    for m in iterable:
-        k = key(m)
-        if k not in result:
-            result[k] = [ m ]
+    :param iterable: An iterable.
+    :param key: A function that accepts one argument and returns a hashable
+    value, which will be used to group the items in iterable.
+    '''
+    groups = collections.OrderedDict()
+
+    for item in iterable:
+        key = key_function(item)
+        if key not in groups:
+            groups[key] = [ item ]
         else:
-            result[k].append(m)
+            groups[key].append(item)
 
-    for k, ms in result.items():
-        yield k, ms
+    for key, item_list in groups.items():
+        yield key, item_list
 
 
 def recurse_file_iterator(roots):
