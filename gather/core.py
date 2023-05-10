@@ -72,7 +72,7 @@ def generate_plan(
     if len(rejected) > 0:
         handler.handle_rejected_sequences(rejected)
 
-    for parent, dir_sequences in util.group(qualifying, key=sequence_namer):
+    for parent, dir_sequences in util.group(qualifying, key_function=sequence_namer):
         if len(dir_sequences) > 1:
             handler.handle_shared_sequences(parent, dir_sequences)
 

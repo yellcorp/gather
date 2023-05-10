@@ -7,7 +7,7 @@ def enum_name_set(enum_class):
 
 
 def group(iterable, key_function):
-    '''
+    """
     Groups values using a key function.
 
     Each item in iterable is passed as a single argument to `key`, and then
@@ -15,9 +15,9 @@ def group(iterable, key_function):
     iterator of (key_result, [ item, ... ]) tuples.
 
     :param iterable: An iterable.
-    :param key: A function that accepts one argument and returns a hashable
-    value, which will be used to group the items in iterable.
-    '''
+    :param key_function: A function that accepts one argument and returns a
+      hashable value, which will be used to group the items in iterable.
+    """
     groups = collections.OrderedDict()
 
     for item in iterable:
